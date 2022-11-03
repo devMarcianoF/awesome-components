@@ -12,4 +12,7 @@ export class PostsService {
     return this.http.get<Post[]>(`${environment.apiUrl}/posts`);
   }
 
+  addNewComment(postCommented: { comment: string, postId: number }) {
+    console.log(postCommented)
+  }
 }
