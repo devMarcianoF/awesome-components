@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import {AbstractControl, FormBuilder, FormControl, FormGroup, Validators} from "@angular/forms";
 import {map, Observable, startWith, tap} from "rxjs";
 import {ComplexFormService} from "../../services/complex-form.service";
+import {ValidValidator} from "./validators/valid.validator";
+import {confirmEqualValidator} from "./validators/confirm-equal.validator";
 
 @Component({
   selector: 'app-complex-form',
@@ -23,6 +25,8 @@ export class ComplexFormComponent implements OnInit {
 
   showEmailCtrl$!: Observable<boolean>;
   showPhoneCtrl$!: Observable<boolean>;
+  showEmailError$!: Observable<boolean>;
+  showPasswordError$!: Observable<boolean>
 
   constructor(private fb: FormBuilder, private complexFormService: ComplexFormService) { }
 
@@ -53,8 +57,18 @@ export class ComplexFormComponent implements OnInit {
       startWith(this.contactPreferenceCtrl.value),
       map(preference => preference === 'phone'),
       tap(showPhoneCtrl => this.setPhoneValidators(showPhoneCtrl))
-    )
-  }
+    );
+     this.showEmailError$ = this.emailForm.statusChanges.pipe(
+       map(status => status === 'INVALID' && this.emailCtrl.value && this.confirmEmailCtrl.value)
+     );
+     this.showPasswordError$ = this.loginInfoForm.statusChanges.pipe(
+       map(status => status === 'INVALID'
+         && this.passwordCtrl.value
+         && this.confirmPasswordCtrl.value
+         && this.loginInfoForm.hasError('confirmEqual'))
+     );
+
+   }
 
    setPhoneValidators(showPhoneCtrl: boolean) {
       if (showPhoneCtrl) {
@@ -67,7 +81,7 @@ export class ComplexFormComponent implements OnInit {
 
   setEmailValidators(showEmailCtrl: boolean) {
       if(showEmailCtrl) {
-        this.emailCtrl.addValidators([Validators.required, Validators.email])
+        this.emailCtrl.addValidators([Validators.required, Validators.email, ValidValidator()])
         this.confirmEmailCtrl.addValidators([Validators.required, Validators.email])
       } else {
         this.emailCtrl.clearValidators();
@@ -111,7 +125,9 @@ export class ComplexFormComponent implements OnInit {
       else if (ctrl.hasError('minlength')) {
         return 'Il n\'y a pas assez de chiffres'
     } else if (ctrl.hasError('maxlength')) {
-        return 'il y a trop de chiffres'
+      return 'il y a trop de chiffres'
+    } else if (ctrl.hasError('validValidator')) {
+      return 'Ce texte ne contient pas le mot VALID'
     } else {
         return 'Ce champs contient une erreur'
     }
@@ -129,14 +145,24 @@ export class ComplexFormComponent implements OnInit {
     this.emailForm = this.fb.group({
       email: this.emailCtrl,
       confirm: this.confirmEmailCtrl
-    })
+
+    },
+      /*Un Validator peut s'appliquer à un FormGroup en passant un objet de configuration comme
+    deuxième argument à  FormBuilder.group.*/
+      {
+        validators: [confirmEqualValidator('email', 'confirm')],
+        updateOn: 'blur'
+      });
     this.passwordCtrl = this.fb.control('', Validators.required);
     this.confirmPasswordCtrl = this.fb.control('', Validators.required);
     this.loginInfoForm = this.fb.group({
       username: ['', Validators.required],
       password: this.passwordCtrl,
       confirmPassword: this.confirmPasswordCtrl
-    });
+    },
+      {
+        validators: [confirmEqualValidator('password', 'confirmPassword')]
+      });
 
   }
 
